@@ -1,0 +1,8 @@
+default vesamenu.c32
+prompt 1
+timeout 1
+label linux
+  menu label ^Install system
+  menu default
+  kernel vmlinuz
+  append initrd=initrd.img ip=dhcp inst.ks=http://192.168.250.200/ks.cfg
