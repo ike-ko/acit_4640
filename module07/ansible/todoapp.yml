@@ -1,0 +1,96 @@
+---
+- hosts: todoapp
+  vars:
+    todoapp_username: todo-app
+    todoapp_password: $6$d.Brge7H.T51$BFPGJ2wJMoHHtm.mo4OAads.WH45zGyX9u.WHS2DwQcYnl6jGsNn2khvfn8qF/N5LRlIjvy1JMQ5Rk.5w3IPK.
+  tasks:
+    - name: Disable SELinux
+      selinux:
+        state: disabled
+
+    - name: Create todoapp user
+      become: yes
+      user:
+        name: "{{todoapp_username}}"
+        password: "{{todoapp_password}}"
+        state: present
+
+    - name: Install packages
+      become: yes
+      package:
+        name:
+          - nginx
+          - git
+          - mongodb-server
+          - nodejs
+        state: present
+
+    - name: Copy database.js
+      copy:
+        src: ../files/database.js
+        dest: /home/todo-app/app/config/database.js
+        owner: "{{todoapp_username}}"
+        group: "{{todoapp_username}}"
+
+    - name: Copy nginx.conf
+      copy:
+        src: ../files/nginx.conf
+        dest: /etc/nginx/nginx.conf
+        owner: nginx
+        group: nginx
+
+    - name: Copy todoapp.service
+      copy:
+        src: ../files/todoapp.service
+        dest: /lib/systemd/system/todoapp.service
+
+    - name: Configure firewall for http
+      firewalld:
+        zone: public
+        service: http
+        permanent: yes
+        immediate: yes
+        state: enabled
+
+    - name: Pull todo-app from git
+      git:
+        repo: https://github.com/timoguic/ACIT4640-todo-app.git
+        dest: /home/todo-app/app/
+      become: yes
+
+    - name: Install npm
+      command: npm install
+      become: yes
+      args:
+        chdir: /home/todo-app/app
+
+    - name: Set permissions for todo-app
+      file:
+        path: /home/todo-app
+        recurse: yes
+        state: directory
+        mode: 0755
+        owner: "{{todoapp_username}}"
+        group: "{{todoapp_username}}"
+
+    - name: Reload daemons
+      systemd:
+        daemon_reload: yes
+
+    - name: Setup nginx service
+      service:
+        name: nginx
+        enabled: yes
+        state: started
+
+    - name: Setup mongod service
+      service:
+        name: mongod
+        enabled: yes
+        state: started
+
+    - name: Setup todoapp service
+      service:
+        name: todoapp
+        enabled: yes
+        state: started
